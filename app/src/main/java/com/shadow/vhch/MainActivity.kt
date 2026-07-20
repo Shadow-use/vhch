@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.TextView
 import com.shadow.vhch.engine.ArkUnit
@@ -22,10 +23,22 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+
+        // Сітку створюємо в коді, а не через activity_main.xml —
+        // це прибирає залежність від інфлейту XML-ресурсу.
+        val gridLayout = GridLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            rowCount = boardSize
+            columnCount = boardSize
+            setBackgroundColor(Color.WHITE)
+        }
+
+        setContentView(gridLayout)
 
         val board = buildSampleBoard()
-        val gridLayout = findViewById<GridLayout>(R.id.boardGrid)
         renderBoard(board, gridLayout)
     }
 
