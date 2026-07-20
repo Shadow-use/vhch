@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GridLayout xmlns:android="http://schemas.android.com/res/android"
+    android:id="@+id/boardGrid"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:rowCount="8"
+    android:columnCount="8"
+    android:background="#FFFFFF" />
