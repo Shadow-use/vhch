@@ -182,6 +182,7 @@ class MainActivity : Activity() {
         return when {
             gameController.isSelected(position) -> Color.rgb(255, 200, 0) // золотий — обраний юніт
             gameController.isAvailableTarget(position) -> Color.rgb(255, 140, 0) // помаранчевий — можна атакувати
+            unit?.team == Team.PLAYER && gameController.hasActed(position) -> Color.rgb(30, 70, 110) // тьмяно-синій — вже відходив
             unit?.team == Team.PLAYER -> Color.rgb(60, 140, 220)
             unit?.team == Team.ENEMY -> Color.rgb(220, 80, 80)
             gameController.isAvailableMove(position) -> Color.rgb(140, 220, 140) // зелений — доступний хід

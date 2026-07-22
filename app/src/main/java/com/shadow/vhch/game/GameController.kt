@@ -30,6 +30,7 @@ class GameController {
         private set
 
     private var availableTargets: List<ArkUnit> = emptyList()
+    private val actedUnitIds: MutableSet<String> = mutableSetOf()
 
     var currentTurn: Team = Team.PLAYER
         private set
@@ -88,7 +89,7 @@ class GameController {
 
         when {
             currentSelection == null -> {
-                if (tappedUnit != null && tappedUnit.team == Team.PLAYER) {
+                if (tappedUnit != null && tappedUnit.team == Team.PLAYER && tappedUnit.id !in actedUnitIds) {
                     select(tappedUnit)
                 }
             }
@@ -100,9 +101,10 @@ class GameController {
             }
             position in availableMoveCells -> {
                 board.moveUnit(currentSelection, position)
+                actedUnitIds.add(currentSelection.id)
                 clearSelection()
             }
-            tappedUnit != null && tappedUnit.team == Team.PLAYER -> {
+            tappedUnit != null && tappedUnit.team == Team.PLAYER && tappedUnit.id !in actedUnitIds -> {
                 select(tappedUnit)
             }
             else -> {
@@ -124,10 +126,12 @@ class GameController {
 
         currentTurn = Team.PLAYER
         statusMessage = "Твій хід"
+        actedUnitIds.clear()
     }
 
     private fun performAttack(attacker: ArkUnit, target: ArkUnit) {
         val result = combatEngine.resolveAttack(attacker, target)
+        actedUnitIds.add(attacker.id)
         statusMessage = buildAttackMessage(attacker, result)
         clearSelection()
         checkGameOver()
@@ -179,6 +183,11 @@ class GameController {
     fun isAvailableTarget(position: Position): Boolean {
         val unit = board.unitAt(position) ?: return false
         return unit in availableTargets
+    }
+
+    fun hasActed(position: Position): Boolean {
+        val unit = board.unitAt(position) ?: return false
+        return unit.id in actedUnitIds
     }
 
     fun allUnits(): List<ArkUnit> = board.allUnits()
