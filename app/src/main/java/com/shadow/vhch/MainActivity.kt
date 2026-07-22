@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -14,13 +15,13 @@ import com.shadow.vhch.engine.Team
 import com.shadow.vhch.game.GameController
 
 /**
- * Тільки малює екран за даними з GameController і передає йому тапи.
+ * Тільки малює екран за даними з GameController і передає йому тапи/кнопки.
  * Жодної ігрової логіки тут бути не повинно — усе рахує GameController + engine.
  */
 class MainActivity : Activity() {
 
     private val boardSize = 8
-    private val gameController = GameController()
+    private var gameController = GameController()
 
     private lateinit var gridLayout: GridLayout
     private lateinit var statsContainer: LinearLayout
@@ -46,6 +47,32 @@ class MainActivity : Activity() {
             setPadding(32, 32, 32, 32)
         }
 
+        val endTurnButton = Button(this).apply {
+            text = "Кінець ходу"
+            setOnClickListener {
+                gameController.endTurn()
+                refreshUi()
+            }
+        }
+
+        val restartButton = Button(this).apply {
+            text = "Заново"
+            setOnClickListener {
+                gameController = GameController()
+                refreshUi()
+            }
+        }
+
+        val buttonsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            addView(endTurnButton)
+            addView(restartButton)
+        }
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
@@ -54,6 +81,7 @@ class MainActivity : Activity() {
             )
             addView(gridLayout)
             addView(statsContainer)
+            addView(buttonsRow)
         }
 
         val scrollView = ScrollView(this).apply {
@@ -117,9 +145,7 @@ class MainActivity : Activity() {
         statsContainer.removeAllViews()
 
         val header = TextView(this).apply {
-            text = gameController.selectedUnit?.let {
-                "Обрано: ${it.mech.mechClass.displayName} — тапни зелену клітинку, щоб перемістити"
-            } ?: "Статистика юнітів"
+            text = buildHeaderText()
             textSize = 16f
             setTextColor(Color.BLACK)
             setPadding(0, 0, 0, 16)
@@ -139,6 +165,13 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun buildHeaderText(): String {
+        val selectionNote = gameController.selectedUnit?.let {
+            " Обрано: ${it.mech.mechClass.displayName} — зелена клітинка = рух, помаранчева = атака."
+        } ?: ""
+        return gameController.statusMessage + selectionNote
+    }
+
     private fun cellLabel(position: Position): String {
         val unit = gameController.unitAt(position) ?: return ""
         return unit.mech.mechClass.displayName.take(1)
@@ -148,6 +181,7 @@ class MainActivity : Activity() {
         val unit = gameController.unitAt(position)
         return when {
             gameController.isSelected(position) -> Color.rgb(255, 200, 0) // золотий — обраний юніт
+            gameController.isAvailableTarget(position) -> Color.rgb(255, 140, 0) // помаранчевий — можна атакувати
             unit?.team == Team.PLAYER -> Color.rgb(60, 140, 220)
             unit?.team == Team.ENEMY -> Color.rgb(220, 80, 80)
             gameController.isAvailableMove(position) -> Color.rgb(140, 220, 140) // зелений — доступний хід

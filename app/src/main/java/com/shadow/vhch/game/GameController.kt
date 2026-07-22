@@ -169,7 +169,10 @@ class GameController {
 
     fun unitAt(position: Position): ArkUnit? = board.unitAt(position)
 
-    fun isSelected(position: Position): Boolean = board.unitAt(position) == selectedUnit
+    fun isSelected(position: Position): Boolean {
+        val unit = board.unitAt(position) ?: return false
+        return unit == selectedUnit
+    }
 
     fun isAvailableMove(position: Position): Boolean = position in availableMoveCells
 
