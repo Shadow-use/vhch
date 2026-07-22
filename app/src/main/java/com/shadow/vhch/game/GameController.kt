@@ -1,192 +1,182 @@
-package com.shadow.vhch
+package com.shadow.vhch.game
 
-import android.app.Activity
-import android.graphics.Color
-import android.os.Bundle
-import android.view.Gravity
-import android.view.ViewGroup
-import android.widget.Button
-import android.widget.GridLayout
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
+import com.shadow.vhch.engine.ArkUnit
+import com.shadow.vhch.engine.AttackResult
+import com.shadow.vhch.engine.Board
+import com.shadow.vhch.engine.CombatEngine
+import com.shadow.vhch.engine.Mech
+import com.shadow.vhch.engine.MechClass
+import com.shadow.vhch.engine.Pilot
+import com.shadow.vhch.engine.PilotAbility
+import com.shadow.vhch.engine.PilotStats
 import com.shadow.vhch.engine.Position
 import com.shadow.vhch.engine.Team
-import com.shadow.vhch.game.GameController
 
 /**
- * Тільки малює екран за даними з GameController і передає йому тапи/кнопки.
- * Жодної ігрової логіки тут бути не повинно — усе рахує GameController + engine.
+ * Тримає весь стан поточного бою: дошку, кого обрано, доступні ходи/цілі,
+ * чия зараз черга, і чи гру вже завершено. MainActivity лише запитує тут
+ * дані для малювання і повідомляє про тапи/кінець ходу.
  */
-class MainActivity : Activity() {
+class GameController {
 
-    private val boardSize = 8
-    private var gameController = GameController()
+    val board: Board = buildSampleBoard()
+    private val combatEngine: CombatEngine = CombatEngine(board)
+    private val enemyAI = EnemyAI(board, combatEngine)
 
-    private lateinit var gridLayout: GridLayout
-    private lateinit var statsContainer: LinearLayout
+    var selectedUnit: ArkUnit? = null
+        private set
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    var availableMoveCells: List<Position> = emptyList()
+        private set
 
-        val screenWidth = resources.displayMetrics.widthPixels
+    private var availableTargets: List<ArkUnit> = emptyList()
 
-        gridLayout = GridLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(screenWidth, screenWidth)
-            rowCount = boardSize
-            columnCount = boardSize
-            setBackgroundColor(Color.BLACK)
-        }
+    var currentTurn: Team = Team.PLAYER
+        private set
 
-        statsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(32, 32, 32, 32)
-        }
+    var statusMessage: String = "Твій хід"
+        private set
 
-        val endTurnButton = Button(this).apply {
-            text = "Кінець ходу"
-            setOnClickListener {
-                gameController.endTurn()
-                refreshUi()
+    var gameOver: Boolean = false
+        private set
+
+    /** Тимчасова тестова розстановка: один твій юніт і один ворожий. */
+    private fun buildSampleBoard(): Board {
+        val newBoard = Board()
+
+        val playerPilot = Pilot(
+            id = "p1",
+            name = "Тестовий пілот",
+            stats = PilotStats(accuracy = 2, evasion = 1, willpower = 3),
+            ability = PilotAbility(name = "Прорив", description = "Бонус урону", damageBonus = 5)
+        )
+        val playerMech = Mech(id = "m1", mechClass = MechClass.GUARDIAN)
+        val playerUnit = ArkUnit(
+            id = "u1",
+            team = Team.PLAYER,
+            pilot = playerPilot,
+            mech = playerMech,
+            position = Position(1, 1)
+        )
+        newBoard.placeUnit(playerUnit)
+
+        val enemyPilot = Pilot(
+            id = "e1",
+            name = "Ворог",
+            stats = PilotStats(accuracy = 1, evasion = 1, willpower = 2),
+            ability = PilotAbility(name = "Стрибок", description = "-", damageBonus = 0)
+        )
+        val enemyMech = Mech(id = "m2", mechClass = MechClass.STRIKER)
+        val enemyUnit = ArkUnit(
+            id = "u2",
+            team = Team.ENEMY,
+            pilot = enemyPilot,
+            mech = enemyMech,
+            position = Position(6, 6)
+        )
+        newBoard.placeUnit(enemyUnit)
+
+        return newBoard
+    }
+
+    /** Тап по клітинці: вибір юніта, зняття вибору, рух або атака. */
+    fun onCellTapped(position: Position) {
+        if (gameOver || currentTurn != Team.PLAYER) return
+
+        val tappedUnit = board.unitAt(position)
+        val currentSelection = selectedUnit
+
+        when {
+            currentSelection == null -> {
+                if (tappedUnit != null && tappedUnit.team == Team.PLAYER) {
+                    select(tappedUnit)
+                }
             }
-        }
-
-        val restartButton = Button(this).apply {
-            text = "Заново"
-            setOnClickListener {
-                gameController = GameController()
-                refreshUi()
+            tappedUnit == currentSelection -> {
+                clearSelection()
             }
-        }
-
-        val buttonsRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            addView(endTurnButton)
-            addView(restartButton)
-        }
-
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            addView(gridLayout)
-            addView(statsContainer)
-            addView(buttonsRow)
-        }
-
-        val scrollView = ScrollView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            addView(root)
-        }
-
-        setContentView(scrollView)
-
-        refreshUi()
-    }
-
-    private fun onCellTapped(position: Position) {
-        gameController.onCellTapped(position)
-        refreshUi()
-    }
-
-    private fun refreshUi() {
-        renderBoard()
-        renderStats()
-    }
-
-    private fun renderBoard() {
-        gridLayout.removeAllViews()
-        gridLayout.rowCount = boardSize
-        gridLayout.columnCount = boardSize
-
-        val screenWidth = resources.displayMetrics.widthPixels
-        val cellSize = screenWidth / boardSize
-
-        // row=0 малюємо зверху, тому y-координату інвертуємо (у Position (0,0) — низ поля)
-        for (row in 0 until boardSize) {
-            val y = boardSize - 1 - row
-            for (col in 0 until boardSize) {
-                val position = Position(col, y)
-                val cell = TextView(this)
-                cell.text = cellLabel(position)
-                cell.gravity = Gravity.CENTER
-                cell.textSize = 12f
-                cell.setTextColor(Color.WHITE)
-                cell.setBackgroundColor(cellColor(position))
-                cell.setOnClickListener { onCellTapped(position) }
-
-                val params = GridLayout.LayoutParams()
-                params.width = cellSize
-                params.height = cellSize
-                params.rowSpec = GridLayout.spec(row)
-                params.columnSpec = GridLayout.spec(col)
-                params.setMargins(1, 1, 1, 1)
-                cell.layoutParams = params
-
-                gridLayout.addView(cell)
+            tappedUnit != null && tappedUnit.team == Team.ENEMY && tappedUnit in availableTargets -> {
+                performAttack(currentSelection, tappedUnit)
+            }
+            position in availableMoveCells -> {
+                board.moveUnit(currentSelection, position)
+                clearSelection()
+            }
+            tappedUnit != null && tappedUnit.team == Team.PLAYER -> {
+                select(tappedUnit)
+            }
+            else -> {
+                clearSelection()
             }
         }
     }
 
-    private fun renderStats() {
-        statsContainer.removeAllViews()
+    /** Викликається кнопкою "Кінець ходу": передає хід ворогу, той діє, повертає хід гравцю. */
+    fun endTurn() {
+        if (gameOver) return
+        clearSelection()
+        currentTurn = Team.ENEMY
+        statusMessage = "Хід ворога..."
 
-        val header = TextView(this).apply {
-            text = buildHeaderText()
-            textSize = 16f
-            setTextColor(Color.BLACK)
-            setPadding(0, 0, 0, 16)
-        }
-        statsContainer.addView(header)
+        enemyAI.takeTurn()
 
-        for (unit in gameController.allUnits()) {
-            val teamLabel = if (unit.team == Team.PLAYER) "гравець" else "ворог"
-            val line = TextView(this).apply {
-                text = "${unit.mech.mechClass.displayName} ($teamLabel) — " +
-                    "HP: ${unit.mech.currentHp}/${unit.mech.maxHp}, синхр.: ${unit.pilot.syncRate}%"
-                textSize = 14f
-                setTextColor(Color.DKGRAY)
-                setPadding(0, 8, 0, 8)
-            }
-            statsContainer.addView(line)
-        }
+        if (checkGameOver()) return
+
+        currentTurn = Team.PLAYER
+        statusMessage = "Твій хід"
     }
 
-    private fun buildHeaderText(): String {
-        val selectionNote = gameController.selectedUnit?.let {
-            " Обрано: ${it.mech.mechClass.displayName} — зелена клітинка = рух, помаранчева = атака."
-        } ?: ""
-        return gameController.statusMessage + selectionNote
+    private fun performAttack(attacker: ArkUnit, target: ArkUnit) {
+        val result = combatEngine.resolveAttack(attacker, target)
+        statusMessage = buildAttackMessage(attacker, result)
+        clearSelection()
+        checkGameOver()
     }
 
-    private fun cellLabel(position: Position): String {
-        val unit = gameController.unitAt(position) ?: return ""
-        return unit.mech.mechClass.displayName.take(1)
+    private fun buildAttackMessage(attacker: ArkUnit, result: AttackResult): String {
+        val destroyedNote = if (result.targetDestroyed) " Ціль знищено!" else ""
+        val abilityNote = if (result.attackerAbilityTriggered) " Здібність пілота готова!" else ""
+        return "${attacker.mech.mechClass.displayName} завдав ${result.damageDealt} урону.$destroyedNote$abilityNote"
     }
 
-    private fun cellColor(position: Position): Int {
-        val unit = gameController.unitAt(position)
+    private fun checkGameOver(): Boolean {
         return when {
-            gameController.isSelected(position) -> Color.rgb(255, 200, 0) // золотий — обраний юніт
-            gameController.isAvailableTarget(position) -> Color.rgb(255, 140, 0) // помаранчевий — можна атакувати
-            unit?.team == Team.PLAYER -> Color.rgb(60, 140, 220)
-            unit?.team == Team.ENEMY -> Color.rgb(220, 80, 80)
-            gameController.isAvailableMove(position) -> Color.rgb(140, 220, 140) // зелений — доступний хід
-            (position.x + position.y) % 2 == 0 -> Color.rgb(210, 210, 210)
-            else -> Color.rgb(170, 170, 170)
+            combatEngine.isTeamDefeated(Team.PLAYER) -> {
+                gameOver = true
+                statusMessage = "Поразка... Натисни \"Заново\", щоб спробувати ще раз."
+                true
+            }
+            combatEngine.isTeamDefeated(Team.ENEMY) -> {
+                gameOver = true
+                statusMessage = "Перемога! Натисни \"Заново\" для нового бою."
+                true
+            }
+            else -> false
         }
     }
+
+    private fun select(unit: ArkUnit) {
+        selectedUnit = unit
+        availableMoveCells = combatEngine.availableMoves(unit)
+        availableTargets = combatEngine.availableTargets(unit)
+    }
+
+    private fun clearSelection() {
+        selectedUnit = null
+        availableMoveCells = emptyList()
+        availableTargets = emptyList()
+    }
+
+    fun unitAt(position: Position): ArkUnit? = board.unitAt(position)
+
+    fun isSelected(position: Position): Boolean = board.unitAt(position) == selectedUnit
+
+    fun isAvailableMove(position: Position): Boolean = position in availableMoveCells
+
+    fun isAvailableTarget(position: Position): Boolean {
+        val unit = board.unitAt(position) ?: return false
+        return unit in availableTargets
+    }
+
+    fun allUnits(): List<ArkUnit> = board.allUnits()
 }
