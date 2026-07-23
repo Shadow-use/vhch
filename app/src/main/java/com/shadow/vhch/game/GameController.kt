@@ -11,6 +11,7 @@ import com.shadow.vhch.engine.PilotAbility
 import com.shadow.vhch.engine.PilotStats
 import com.shadow.vhch.engine.Position
 import com.shadow.vhch.engine.Team
+import com.shadow.vhch.engine.Terrain
 
 /**
  * Тримає весь стан поточного бою: дошку, кого обрано, доступні ходи/цілі,
@@ -41,41 +42,59 @@ class GameController {
     var gameOver: Boolean = false
         private set
 
-    /** Тимчасова тестова розстановка: один твій юніт і один ворожий. */
+    /** Тестова розстановка: по два юніти на сторону, кілька клітинок місцевості. */
     private fun buildSampleBoard(): Board {
-        val newBoard = Board()
+        val terrainMap = mapOf(
+            Position(3, 3) to Terrain.RUINS,
+            Position(4, 4) to Terrain.RUINS,
+            Position(2, 5) to Terrain.FOREST,
+            Position(5, 2) to Terrain.FOREST
+        )
+        val newBoard = Board(terrainMap)
 
-        val playerPilot = Pilot(
+        val playerPilot1 = Pilot(
             id = "p1",
             name = "Тестовий пілот",
             stats = PilotStats(accuracy = 2, evasion = 1, willpower = 3),
-            ability = PilotAbility(name = "Прорив", description = "Бонус урону", damageBonus = 5)
+            ability = PilotAbility(name = "Прорив", description = "Бонус урону + самолікування", damageBonus = 5, healAmount = 4)
         )
-        val playerMech = Mech(id = "m1", mechClass = MechClass.GUARDIAN)
-        val playerUnit = ArkUnit(
-            id = "u1",
-            team = Team.PLAYER,
-            pilot = playerPilot,
-            mech = playerMech,
-            position = Position(1, 1)
+        val playerMech1 = Mech(id = "m1", mechClass = MechClass.GUARDIAN)
+        newBoard.placeUnit(
+            ArkUnit(id = "u1", team = Team.PLAYER, pilot = playerPilot1, mech = playerMech1, position = Position(1, 1))
         )
-        newBoard.placeUnit(playerUnit)
 
-        val enemyPilot = Pilot(
+        val playerPilot2 = Pilot(
+            id = "p2",
+            name = "Другий пілот",
+            stats = PilotStats(accuracy = 1, evasion = 2, willpower = 2),
+            ability = PilotAbility(name = "Ривок", description = "Бонус урону", damageBonus = 3)
+        )
+        val playerMech2 = Mech(id = "m2", mechClass = MechClass.STRIKER)
+        newBoard.placeUnit(
+            ArkUnit(id = "u2", team = Team.PLAYER, pilot = playerPilot2, mech = playerMech2, position = Position(2, 1))
+        )
+
+        val enemyPilot1 = Pilot(
             id = "e1",
-            name = "Ворог",
+            name = "Ворог 1",
             stats = PilotStats(accuracy = 1, evasion = 1, willpower = 2),
-            ability = PilotAbility(name = "Стрибок", description = "-", damageBonus = 0)
+            ability = PilotAbility(name = "Стрибок", description = "Бонус урону", damageBonus = 3)
         )
-        val enemyMech = Mech(id = "m2", mechClass = MechClass.STRIKER)
-        val enemyUnit = ArkUnit(
-            id = "u2",
-            team = Team.ENEMY,
-            pilot = enemyPilot,
-            mech = enemyMech,
-            position = Position(6, 6)
+        val enemyMech1 = Mech(id = "em1", mechClass = MechClass.STRIKER)
+        newBoard.placeUnit(
+            ArkUnit(id = "e_u1", team = Team.ENEMY, pilot = enemyPilot1, mech = enemyMech1, position = Position(6, 6))
         )
-        newBoard.placeUnit(enemyUnit)
+
+        val enemyPilot2 = Pilot(
+            id = "e2",
+            name = "Ворог 2",
+            stats = PilotStats(accuracy = 1, evasion = 0, willpower = 1),
+            ability = PilotAbility(name = "Важкий залп", description = "Бонус урону", damageBonus = 4)
+        )
+        val enemyMech2 = Mech(id = "em2", mechClass = MechClass.ARTILLERY)
+        newBoard.placeUnit(
+            ArkUnit(id = "e_u2", team = Team.ENEMY, pilot = enemyPilot2, mech = enemyMech2, position = Position(5, 6))
+        )
 
         return newBoard
     }
@@ -189,6 +208,8 @@ class GameController {
         val unit = board.unitAt(position) ?: return false
         return unit.id in actedUnitIds
     }
+
+    fun terrainAt(position: Position): Terrain = board.terrainAt(position)
 
     fun allUnits(): List<ArkUnit> = board.allUnits()
 }

@@ -70,7 +70,10 @@ class CombatEngine(private val board: Board) {
      */
     fun resolveAttack(attacker: ArkUnit, target: ArkUnit): AttackResult {
         val terrainDefense = board.terrainAt(target.position).defenseBonus
-        val rawDamage = attacker.effectiveAttack() - (target.effectiveDefense() + terrainDefense)
+        val abilityReady = attacker.pilot.isAbilityReady()
+        val abilityDamageBonus = if (abilityReady) attacker.pilot.ability.damageBonus else 0
+
+        val rawDamage = attacker.effectiveAttack() + abilityDamageBonus - (target.effectiveDefense() + terrainDefense)
         val damage = rawDamage.coerceAtLeast(1)
 
         target.mech.applyDamage(damage)
@@ -81,9 +84,8 @@ class CombatEngine(private val board: Board) {
             target.pilot.loseSync(15)
         }
 
-        var abilityTriggered = false
-        if (attacker.pilot.isAbilityReady()) {
-            abilityTriggered = true
+        if (abilityReady) {
+            attacker.mech.repair(attacker.pilot.ability.healAmount)
             attacker.pilot.consumeAbility()
         }
 
@@ -95,7 +97,7 @@ class CombatEngine(private val board: Board) {
         return AttackResult(
             damageDealt = damage,
             targetDestroyed = destroyed,
-            attackerAbilityTriggered = abilityTriggered
+            attackerAbilityTriggered = abilityReady
         )
     }
 

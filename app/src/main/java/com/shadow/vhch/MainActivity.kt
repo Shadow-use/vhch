@@ -12,6 +12,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.shadow.vhch.engine.Position
 import com.shadow.vhch.engine.Team
+import com.shadow.vhch.engine.Terrain
 import com.shadow.vhch.game.GameController
 
 /**
@@ -179,6 +180,7 @@ class MainActivity : Activity() {
 
     private fun cellColor(position: Position): Int {
         val unit = gameController.unitAt(position)
+        val terrain = gameController.terrainAt(position)
         return when {
             gameController.isSelected(position) -> Color.rgb(255, 200, 0) // золотий — обраний юніт
             gameController.isAvailableTarget(position) -> Color.rgb(255, 140, 0) // помаранчевий — можна атакувати
@@ -186,6 +188,8 @@ class MainActivity : Activity() {
             unit?.team == Team.PLAYER -> Color.rgb(60, 140, 220)
             unit?.team == Team.ENEMY -> Color.rgb(220, 80, 80)
             gameController.isAvailableMove(position) -> Color.rgb(140, 220, 140) // зелений — доступний хід
+            terrain == Terrain.RUINS -> Color.rgb(150, 130, 110) // руїни — +захист
+            terrain == Terrain.FOREST -> Color.rgb(90, 150, 90) // ліс — +захист
             (position.x + position.y) % 2 == 0 -> Color.rgb(210, 210, 210)
             else -> Color.rgb(170, 170, 170)
         }
