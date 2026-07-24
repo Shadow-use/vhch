@@ -103,4 +103,27 @@ class CombatEngine(private val board: Board) {
 
     /** Перевірка умови перемоги: чи залишились живі юніти у команди. */
     fun isTeamDefeated(team: Team): Boolean = board.aliveUnits(team).isEmpty()
+
+    /**
+     * Усі клітинки, куди цей юніт може дотягнутись атакою наступного ходу
+     * (з поточної позиції або будь-якої клітинки, куди він може дійти).
+     * Використовується для показу гравцю "зони загрози" ворога перед його ходом.
+     */
+    fun threatRange(unit: ArkUnit): Set<Position> {
+        val reachablePositions = availableMoves(unit) + unit.position
+        val range = unit.mech.mechClass.attackRange
+        val result = mutableSetOf<Position>()
+
+        for (origin in reachablePositions) {
+            for (x in 0..7) {
+                for (y in 0..7) {
+                    val candidate = Position(x, y)
+                    if (origin.distanceTo(candidate) <= range) {
+                        result.add(candidate)
+                    }
+                }
+            }
+        }
+        return result
+    }
 }
